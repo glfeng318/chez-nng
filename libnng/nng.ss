@@ -19,6 +19,7 @@
     nng_msg
     nng_stat
     nng_aio
+    nng_aio*
     nng_sockaddr_inproc
     nng_sockaddr_path
     nng_sockaddr_ipc
@@ -30,6 +31,7 @@
     nng_sockaddr
     nng_iov
     nng_url
+    nng_url*
     nng_stream
     nng_stream_dialer
     nng_stream_listener
@@ -163,6 +165,7 @@
     nng-free
     nng-strdup
     nng-strfree
+    make-nng-aio-alloc-cb
     nng-aio-alloc
     nng-aio-free
     nng-aio-reap
@@ -577,6 +580,7 @@
     NNG_HTTP_STATUS_NETWORK_AUTH_REQUIRED    
 
     nng_http_req
+    nng_http_req*
     nng-http-req-alloc       
     nng-http-req-free        
     nng-http-req-get-method  
@@ -593,6 +597,7 @@
     nng-http-req-copy-data   
     nng-http-req-get-data    
     nng_http_res
+    nng_http_res*
     nng-http-res-alloc       
     nng-http-res-alloc-error 
     nng-http-res-free        
@@ -650,6 +655,7 @@
     nng_http_server_res_error      
     nng_http_hijack                
     nng_http_client
+    nng_http_client*
     nng-http-client-alloc    
     nng-http-client-free     
     nng-http-client-set-tls  
@@ -664,7 +670,12 @@
 
   (include "helper.ss")
 
-  (define lib (load-shared-object "/opt/homebrew/Cellar/nng/1.7.3/lib/libnng.1.7.3.dylib"))
+  (define lib
+    (load-shared-object
+      (case (machine-type)
+            ((a6osx i3osx ta6osx ti3osx) "/opt/homebrew/Cellar/nng/1.7.3/lib/libnng.1.7.3.dylib")
+            ((a6le i3le ta6le ti3le) "libnng.so")
+            (else "libnng.so"))))
 
   (define NNG_MAXADDRLEN 128)
 
@@ -684,7 +695,32 @@
   (define-ftype nng_time unsigned-64)
   (define-ftype nng_msg (struct))
   (define-ftype nng_stat (struct))
-  (define-ftype nng_aio (struct))
+  (define-ftype nng_aio
+    (struct
+      [a_count size_t]
+      [a_expire unsigned-64] ;uint64_t nni_time
+      [a_timeout integer-32] ;int32_t nni_duration
+      [a_result int]
+      [a_stop boolean]
+      [a_sleep boolean]
+      [a_expire_ok boolean]
+      [a_expiring boolean]
+      [a_use_expire boolean]
+      [a_task void*]
+      [a_iov void*]
+      [a_bio unsigned]
+      [a_msg void*]
+      [a_inputs void*]
+      [a_outputs void*]
+      [a_cancel_fn void*]
+      [a_cancel_arg void*]
+      [a_prov_data void*]
+      [a_prov_node void*]
+      [a_expire_q void*]
+      [a_expire_node void*]
+      [a_reap_node void*]
+      ))
+  (define-ftype nng_aio* (* nng_aio))
 
   ; Initializers
   (define NNG_PIPE_INITIALIZER 0)
@@ -1104,7 +1140,8 @@
   ; callback will be executed, generally in a different thread, with no
   ; locks held.
   ; NNG_DECL int nng_aio_alloc(nng_aio **, void (*)(void *), void *);
-  (define nng-aio-alloc (let ([f (foreign-procedure "nng_aio_alloc" ((* nng_aio) void* void*) int)]) (lambda (aiop cb arg) (f aiop cb arg))))
+  (define-callback make-nng-aio-alloc-cb (void*) void)
+  (define nng-aio-alloc (let ([f (foreign-procedure "nng_aio_alloc" ((* nng_aio*) void* void*) int)]) (lambda (aiop cb arg) (f aiop cb arg))))
 
   ; nng_aio_free frees the AIO and any associated resources.
   ; It *must not* be in use at the time it is freed.
@@ -1667,7 +1704,7 @@
   ; one of the sockets is closed. Note that caller is responsible for
   ; finally closing both sockets when this function returns.
   ; NNG_DECL int nng_device(nng_socket, nng_socket);
-  (define nng-device (let ([f (foreign-procedure "nng_device" ((* nng_socket) (* nng_socket)) int)]) (lambda (socket1 socket2) (f socket1 socket2))))
+  (define nng-device (let ([f (foreign-procedure "nng_device" ((& nng_socket) (& nng_socket)) int)]) (lambda (socket1 socket2) (f socket1 socket2))))
 
   ; Asynchronous form of nng_device.  When this succeeds, the device is
   ; left intact and functioning in the background, until one of the sockets
@@ -1754,6 +1791,7 @@
       [u_fragment (* char)]   ; without '#', will be NULL if not specified
       [u_requri (* char)]     ; includes query and fragment, "" if not specified
       ))
+  (define-ftype nng_url* (* nng_url))
 
   ; nng_url_parse parses a URL string into a structured form.
   ; Note that the u_port member will be filled out with a numeric
@@ -1761,7 +1799,7 @@
   ; the scheme.  The URL structure is allocated, along with individual
   ; members.  It can be freed with nng_url_free.
   ; NNG_DECL int nng_url_parse(nng_url **, const char *);
-  (define nng-url-parse (let ([f (foreign-procedure "nng_url_parse" ((* nng_url) string) int)]) (lambda (urlp str) (f urlp str))))
+  (define nng-url-parse (let ([f (foreign-procedure "nng_url_parse" ((* nng_url*) string) int)]) (lambda (urlp str) (f urlp str))))
 
   ; nng_url_free frees a URL structure that was created by nng_url_parse().
   ; NNG_DECL void nng_url_free(nng_url *);
@@ -2007,7 +2045,8 @@
   (define NNG_HTTP_STATUS_NETWORK_AUTH_REQUIRED    511)
 
   (define-ftype nng_http_req (struct))
-  (define nng-http-req-alloc       (let ([f (foreign-procedure "nng_http_req_alloc"       ((* nng_http_req) (* nng_url)) int)])       (lambda (reqp url) (f reqp url))))
+  (define-ftype nng_http_req* void*)
+  (define nng-http-req-alloc       (let ([f (foreign-procedure "nng_http_req_alloc"       ((* nng_http_req*) (* nng_url)) int)])       (lambda (reqp url) (f reqp url))))
   (define nng-http-req-free        (let ([f (foreign-procedure "nng_http_req_free"        ((* nng_http_req)) void)])                  (lambda (req) (f req))))
   (define nng-http-req-get-method  (let ([f (foreign-procedure "nng_http_req_get_method"  ((* nng_http_req)) string)])                (lambda (req) (f req))))
   (define nng-http-req-get-version (let ([f (foreign-procedure "nng_http_req_get_version" ((* nng_http_req)) string)])                (lambda (req) (f req))))
@@ -2023,7 +2062,8 @@
   (define nng-http-req-copy-data   (let ([f (foreign-procedure "nng_http_req_copy_data"   ((* nng_http_req) void* size_t) int)])      (lambda (req body size) (f req body size))))
   (define nng-http-req-get-data    (let ([f (foreign-procedure "nng_http_req_get_data"    ((* nng_http_req) void* (* size_t)) void)]) (lambda (req body size) (f req body size))))
   (define-ftype nng_http_res (struct))
-  (define nng-http-res-alloc       (let ([f (foreign-procedure "nng_http_res_alloc" ((* nng_http_res)) int)])                         (lambda (resp)        (f resp))))
+  (define-ftype nng_http_res* void*)
+  (define nng-http-res-alloc       (let ([f (foreign-procedure "nng_http_res_alloc" ((* nng_http_res*)) int)])                         (lambda (resp)        (f resp))))
   (define nng-http-res-alloc-error (let ([f (foreign-procedure "nng_http_res_alloc_error" ((* nng_http_res) unsigned-16) int)])       (lambda (resp status) (f resp status))))
   (define nng-http-res-free        (let ([f (foreign-procedure "nng_http_res_free" ((* nng_http_res)) void)])                         (lambda (res)         (f res))))
   (define nng-http-res-get-status  (let ([f (foreign-procedure "nng_http_res_get_status" ((* nng_http_res)) unsigned-16)])            (lambda (res)         (f res))))
@@ -2081,15 +2121,16 @@
   (define nng_http_hijack                (let ([f (foreign-procedure "nng_http_hijack"                ((* nng_http_conn)) int)])                        (lambda (conn)             (f conn))))
   ; (alias nni_aio nng_aio)
   (define-ftype nng_http_client
-     (struct
-       [aios void*]
-       [mtx void*]
-       [closed boolean]
-       [aio void*]
-       [dialer void*]
+    (struct
+      [aios void*]
+      [mtx void*]
+      [closed boolean]
+      [aio void*]
+      [dialer void*]
       ))
+  (define-ftype nng_http_client* (* nng_http_client))
   ; NNG_DECL int nng_http_client_alloc(nng_http_client **, const nng_url *);
-  (define nng-http-client-alloc    (let ([f (foreign-procedure "nng_http_client_alloc"     ((* nng_http_client) (* nng_url)) int)])                                    (lambda (clientp url)        (f clientp url))))
+  (define nng-http-client-alloc    (let ([f (foreign-procedure "nng_http_client_alloc"     ((* nng_http_client*) (* nng_url)) int)])                                    (lambda (clientp url)        (f clientp url))))
   (define nng-http-client-free     (let ([f (foreign-procedure "nng_http_client_free"      ((* nng_http_client)) void)])                                               (lambda (client)             (f client))))
   (define nng-http-client-set-tls  (let ([f (foreign-procedure "nng_http_client_set_tls"   ((* nng_http_client) (* nng_tls_config)) int)])                             (lambda (client cfg)         (f client cfg))))
   (define nng-http-client-get-tls  (let ([f (foreign-procedure "nng_http_client_get_tls"   ((* nng_http_client) (* nng_tls_config)) int)])                             (lambda (client cfgp)        (f client cfgp))))
