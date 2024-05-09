@@ -42,6 +42,7 @@
     nng_sockaddr_storage
     nng_sockaddr
     nng_iov
+    make-nng-iov
     nng_url
     nng_url*
     nng_stream
@@ -626,46 +627,51 @@
     nng-http-res-get-data    
     nng-http-res-set-data    
     nng-http-res-copy-data   
+
     nng_http_conn
-    nng_http_conn_close     
-    nng_http_conn_read      
-    nng_http_conn_read_all  
-    nng_http_conn_write     
-    nng_http_conn_write_all 
-    nng_http_conn_write_req 
-    nng_http_conn_write_res 
-    nng_http_conn_read_req  
-    nng_http_conn_read_res  
-    nng_http_req_reset      
-    nng_http_res_reset      
+    nng-http-conn-close     
+    nng-http-conn-read      
+    nng-http-conn-read-all  
+    nng-http-conn-write     
+    nng-http-conn-write-all 
+    nng-http-conn-write-req 
+    nng-http-conn-write-res 
+    nng-http-conn-read-req  
+    nng-http-conn-read-res
+    nng-http-req-reset
+    nng-http-res-reset
+
     nng_http_handler
-    nng_http_handler_alloc              
-    nng_http_handler_free               
-    nng_http_handler_alloc_file         
-    nng_http_handler_alloc_static       
-    nng_http_handler_alloc_redirect     
-    nng_http_handler_alloc_directory    
-    nng_http_handler_set_method         
-    nng_http_handler_set_host           
-    nng_http_handler_collect_body       
-    nng_http_handler_set_tree           
-    nng_http_handler_set_tree_exclusive 
-    nng_http_handler_set_data           
-    nng_http_handler_get_data           
+    nng-http-handler-alloc              
+    nng-http-handler-free               
+    nng-http-handler-alloc-file         
+    nng-http-handler-alloc-static       
+    nng-http-handler-alloc-redirect     
+    nng-http-handler-alloc-directory    
+    nng-http-handler-set-method         
+    nng-http-handler-set-host           
+    nng-http-handler-collect-body       
+    nng-http-handler-set-tree           
+    nng-http-handler-set-tree-exclusive 
+    nng-http-handler-set-data           
+    nng-http-handler-get-data           
+
     nng_http_server
-    nng_http_server_hold           
-    nng_http_server_release        
-    nng_http_server_start          
-    nng_http_server_stop           
-    nng_http_server_add_handler    
-    nng_http_server_del_handler    
-    nng_http_server_set_tls        
-    nng_http_server_get_tls        
-    nng_http_server_get_addr       
-    nng_http_server_set_error_page 
-    nng_http_server_set_error_file 
-    nng_http_server_res_error      
-    nng_http_hijack                
+    nng-http-server-hold           
+    nng-http-server-release        
+    nng-http-server-start          
+    nng-http-server-stop           
+    nng-http-server-add-handler    
+    nng-http-server-del-handler    
+    nng-http-server-set-tls        
+    nng-http-server-get-tls        
+    nng-http-server-get-addr       
+    nng-http-server-set-error-page 
+    nng-http-server-set-error-file 
+    nng-http-server-res-error    
+
+    nng-http-hijack                
+
     nng_http_client
     nng_http_client*
     nng-http-client-alloc    
@@ -676,6 +682,9 @@
     nng-http-conn-transact   
     nng-http-client-transact 
 
+    ;
+    make-ftype-null
+    define-callback
 
     )
   (import (chezscheme))
@@ -883,6 +892,11 @@
       [iov_buf void*]
       [iov_len size_t]
       ))
+  (define (make-nng-iov data len)
+    (let ([ptr (make-ftype-pointer nng_iov (foreign-alloc (ftype-sizeof nng_iov)))])
+      (ftype-set! nng_iov (iov_buf) ptr data)
+      (ftype-set! nng_iov (iov_len) ptr len)
+      ptr))
   
   ; Some definitions for durations used with timeouts.  
   (define NNG_DURATION_INFINITE -1)
@@ -2153,8 +2167,18 @@
   (define NNG_HTTP_STATUS_NOT_EXTENDED             510)
   (define NNG_HTTP_STATUS_NETWORK_AUTH_REQUIRED    511)
 
-  (define-ftype nng_http_req (struct))
-  (define-ftype nng_http_req* void*)
+  (define-ftype nng_http_req
+    (struct
+      [hdrs void*]
+      [data void*]
+      [meth (* char)]
+      [uri (* char)]
+      [vers (* char)]
+      [buf (* char)]
+      [bufsz size_t]
+      [parsed boolean]
+      ))
+  (define-ftype nng_http_req* (* nng_http_req))
   (define nng-http-req-alloc       (let ([f (foreign-procedure "nng_http_req_alloc"       ((* nng_http_req*) (* nng_url)) int)])       (lambda (reqp url) (f reqp url))))
   (define nng-http-req-free        (let ([f (foreign-procedure "nng_http_req_free"        ((* nng_http_req)) void)])                  (lambda (req) (f req))))
   (define nng-http-req-get-method  (let ([f (foreign-procedure "nng_http_req_get_method"  ((* nng_http_req)) string)])                (lambda (req) (f req))))
@@ -2170,8 +2194,20 @@
   (define nng-http-req-set-data    (let ([f (foreign-procedure "nng_http_req_set_data"    ((* nng_http_req) void* size_t) int)])      (lambda (req body size) (f req body size))))
   (define nng-http-req-copy-data   (let ([f (foreign-procedure "nng_http_req_copy_data"   ((* nng_http_req) void* size_t) int)])      (lambda (req body size) (f req body size))))
   (define nng-http-req-get-data    (let ([f (foreign-procedure "nng_http_req_get_data"    ((* nng_http_req) void* (* size_t)) void)]) (lambda (req body size) (f req body size))))
-  (define-ftype nng_http_res (struct))
-  (define-ftype nng_http_res* void*)
+  
+  (define-ftype nng_http_res
+    (struct
+	    [hdrs void*]
+	    [data void*]
+	    [code unsigned-short]
+	    [rsn (* char)]
+	    [vers (* char)]
+	    [buf (* char)]
+	    [bufsz size_t]
+	    [parsed boolean]
+	    [iserr boolean]
+      ))
+  (define-ftype nng_http_res* (* nng_http_res))
   (define nng-http-res-alloc       (let ([f (foreign-procedure "nng_http_res_alloc" ((* nng_http_res*)) int)])                         (lambda (resp)        (f resp))))
   (define nng-http-res-alloc-error (let ([f (foreign-procedure "nng_http_res_alloc_error" ((* nng_http_res) unsigned-16) int)])       (lambda (resp status) (f resp status))))
   (define nng-http-res-free        (let ([f (foreign-procedure "nng_http_res_free" ((* nng_http_res)) void)])                         (lambda (res)         (f res))))
@@ -2188,46 +2224,66 @@
   (define nng-http-res-get-data    (let ([f (foreign-procedure "nng_http_res_get_data" ((* nng_http_res) void* (* size_t)) void)])    (lambda (res body size) (f res body size))))
   (define nng-http-res-set-data    (let ([f (foreign-procedure "nng_http_res_set_data" ((* nng_http_res) void* size_t) int)])         (lambda (res body size) (f res body size))))
   (define nng-http-res-copy-data   (let ([f (foreign-procedure "nng_http_res_copy_data" ((* nng_http_res) void* size_t) int)])        (lambda (res body size) (f res body size))))
-  (define-ftype nng_http_conn (struct))
-  (define nng_http_conn_close     (let ([f (foreign-procedure "nng_http_conn_close"     ((* nng_http_conn)) void)])                              (lambda (conn)     (f conn))))
-  (define nng_http_conn_read      (let ([f (foreign-procedure "nng_http_conn_read"      ((* nng_http_conn) (* nng_aio)) void)])                  (lambda (conn aio) (f conn aio))))
-  (define nng_http_conn_read_all  (let ([f (foreign-procedure "nng_http_conn_read_all"  ((* nng_http_conn) (* nng_aio)) void)])                  (lambda (conn aio) (f conn aio))))
-  (define nng_http_conn_write     (let ([f (foreign-procedure "nng_http_conn_write"     ((* nng_http_conn) (* nng_aio)) void)])                  (lambda (conn aio) (f conn aio))))
-  (define nng_http_conn_write_all (let ([f (foreign-procedure "nng_http_conn_write_all" ((* nng_http_conn) (* nng_aio)) void)])                  (lambda (conn aio) (f conn aio))))
-  (define nng_http_conn_write_req (let ([f (foreign-procedure "nng_http_conn_write_req" ((* nng_http_conn) (* nng_http_req) (* nng_aio)) void)]) (lambda (conn req aio) (f conn req aio))))
-  (define nng_http_conn_write_res (let ([f (foreign-procedure "nng_http_conn_write_res" ((* nng_http_conn) (* nng_http_res) (* nng_aio)) void)]) (lambda (conn res aio) (f conn res aio))))
-  (define nng_http_conn_read_req  (let ([f (foreign-procedure "nng_http_conn_read_req"  ((* nng_http_conn) (* nng_http_req) (* nng_aio)) void)]) (lambda (conn req aio) (f conn req aio))))
-  (define nng_http_conn_read_res  (let ([f (foreign-procedure "nng_http_conn_read_res"  ((* nng_http_conn) (* nng_http_res) (* nng_aio)) void)]) (lambda (conn res aio) (f conn res aio))))
-  (define nng_http_req_reset      (let ([f (foreign-procedure "nng_http_req_reset"      ((* nng_http_req)) void)])                               (lambda (req) (f req))))
-  (define nng_http_res_reset      (let ([f (foreign-procedure "nng_http_res_reset"      ((* nng_http_res)) void)])                               (lambda (res) (f res))))
+  
+  (define-ftype nng_http_conn
+    (struct
+      [sock void*]
+      [ctx void*]
+      [closed boolean]
+      [rdq void*]
+      [wrq void*]
+      [rd_uaio void*]
+      [wr_uaio void*]
+      [rd_aio void*]
+      [wr_aio void*]
+      [mtx void*]
+      [rd_flavor unsigned]
+      [rd_buf void*]  ; uint8_t         *rd_buf;
+      [rd_get size_t]
+      [rd_put size_t]
+      [rd_bufsz size_t]
+      [rd_buffered boolean]
+      [size_t unsigned]
+      ))
+  (define nng-http-conn-close     (let ([f (foreign-procedure "nng_http_conn_close"     ((* nng_http_conn)) void)])                              (lambda (conn)     (f conn))))
+  (define nng-http-conn-read      (let ([f (foreign-procedure "nng_http_conn_read"      ((* nng_http_conn) (* nng_aio)) void)])                  (lambda (conn aio) (f conn aio))))
+  (define nng-http-conn-read-all  (let ([f (foreign-procedure "nng_http_conn_read_all"  ((* nng_http_conn) (* nng_aio)) void)])                  (lambda (conn aio) (f conn aio))))
+  (define nng-http-conn-write     (let ([f (foreign-procedure "nng_http_conn_write"     ((* nng_http_conn) (* nng_aio)) void)])                  (lambda (conn aio) (f conn aio))))
+  (define nng-http-conn-write-all (let ([f (foreign-procedure "nng_http_conn_write_all" ((* nng_http_conn) (* nng_aio)) void)])                  (lambda (conn aio) (f conn aio))))
+  (define nng-http-conn-write-req (let ([f (foreign-procedure "nng_http_conn_write_req" ((* nng_http_conn) (* nng_http_req) (* nng_aio)) void)]) (lambda (conn req aio) (f conn req aio))))
+  (define nng-http-conn-write-res (let ([f (foreign-procedure "nng_http_conn_write_res" ((* nng_http_conn) (* nng_http_res) (* nng_aio)) void)]) (lambda (conn res aio) (f conn res aio))))
+  (define nng-http-conn-read-req  (let ([f (foreign-procedure "nng_http_conn_read_req"  ((* nng_http_conn) (* nng_http_req) (* nng_aio)) void)]) (lambda (conn req aio) (f conn req aio))))
+  (define nng-http-conn-read-res  (let ([f (foreign-procedure "nng_http_conn_read_res"  ((* nng_http_conn) (* nng_http_res) (* nng_aio)) void)]) (lambda (conn res aio) (f conn res aio))))
+  (define nng-http-req-reset      (let ([f (foreign-procedure "nng_http_req_reset"      ((* nng_http_req)) void)])                               (lambda (req) (f req))))
+  (define nng-http-res-reset      (let ([f (foreign-procedure "nng_http_res_reset"      ((* nng_http_res)) void)])                               (lambda (res) (f res))))
   (define-ftype nng_http_handler (struct))
-  (define nng_http_handler_alloc              (let ([f (foreign-procedure "nng_http_handler_alloc"              ((* nng_http_handler) string void*) int)])                 (lambda (handler  path cb) (f handler path cb))))
-  (define nng_http_handler_free               (let ([f (foreign-procedure "nng_http_handler_free"               ((* nng_http_handler)) void)])                             (lambda (handler) (f handler))))
-  (define nng_http_handler_alloc_file         (let ([f (foreign-procedure "nng_http_handler_alloc_file"         ((* nng_http_handler) string string) int)])                (lambda (handler path file-name) (f handler path file-name))))
-  (define nng_http_handler_alloc_static       (let ([f (foreign-procedure "nng_http_handler_alloc_static"       ((* nng_http_handler) string void* size_t string) int)])   (lambda (handler path data size content-type) (f handler path data size content-type))))
-  (define nng_http_handler_alloc_redirect     (let ([f (foreign-procedure "nng_http_handler_alloc_redirect"     ((* nng_http_handler) string unsigned-16 string) int)])    (lambda (handler path status location) (f handler path status location))))
-  (define nng_http_handler_alloc_directory    (let ([f (foreign-procedure "nng_http_handler_alloc_directory"    ((* nng_http_handler) string string) int)])                (lambda (handler path dir-name) (f handler path dir-name))))
-  (define nng_http_handler_set_method         (let ([f (foreign-procedure "nng_http_handler_set_method"         ((* nng_http_handler) string) int)])                       (lambda (handler method) (f handler method))))
-  (define nng_http_handler_set_host           (let ([f (foreign-procedure "nng_http_handler_set_host"           ((* nng_http_handler) string) int)])                       (lambda (handler host) (f handler host))))
-  (define nng_http_handler_collect_body       (let ([f (foreign-procedure "nng_http_handler_collect_body"       ((* nng_http_handler) boolean size_t) int)])               (lambda (handler want maxsz) (f handler want maxsz))))
-  (define nng_http_handler_set_tree           (let ([f (foreign-procedure "nng_http_handler_set_tree"           ((* nng_http_handler)) int)])                              (lambda (handler) (f handler))))
-  (define nng_http_handler_set_tree_exclusive (let ([f (foreign-procedure "nng_http_handler_set_tree_exclusive" ((* nng_http_handler)) int)])                              (lambda (handler) (f handler))))
-  (define nng_http_handler_set_data           (let ([f (foreign-procedure "nng_http_handler_set_data"           ((* nng_http_handler) void* void*) int)])                  (lambda (handler data cb) (f handler data cb))))
-  (define nng_http_handler_get_data           (let ([f (foreign-procedure "nng_http_handler_get_data"           ((* nng_http_handler)) void*)])                            (lambda (handler) (f handler))))
+  (define nng-http-handler-alloc              (let ([f (foreign-procedure "nng_http_handler_alloc"              ((* nng_http_handler) string void*) int)])                 (lambda (handler  path cb) (f handler path cb))))
+  (define nng-http-handler-free               (let ([f (foreign-procedure "nng_http_handler_free"               ((* nng_http_handler)) void)])                             (lambda (handler) (f handler))))
+  (define nng-http-handler-alloc-file         (let ([f (foreign-procedure "nng_http_handler_alloc_file"         ((* nng_http_handler) string string) int)])                (lambda (handler path file-name) (f handler path file-name))))
+  (define nng-http-handler-alloc-static       (let ([f (foreign-procedure "nng_http_handler_alloc_static"       ((* nng_http_handler) string void* size_t string) int)])   (lambda (handler path data size content-type) (f handler path data size content-type))))
+  (define nng-http-handler-alloc-redirect     (let ([f (foreign-procedure "nng_http_handler_alloc_redirect"     ((* nng_http_handler) string unsigned-16 string) int)])    (lambda (handler path status location) (f handler path status location))))
+  (define nng-http-handler-alloc-directory    (let ([f (foreign-procedure "nng_http_handler_alloc_directory"    ((* nng_http_handler) string string) int)])                (lambda (handler path dir-name) (f handler path dir-name))))
+  (define nng-http-handler-set-method         (let ([f (foreign-procedure "nng_http_handler_set_method"         ((* nng_http_handler) string) int)])                       (lambda (handler method) (f handler method))))
+  (define nng-http-handler-set-host           (let ([f (foreign-procedure "nng_http_handler_set_host"           ((* nng_http_handler) string) int)])                       (lambda (handler host) (f handler host))))
+  (define nng-http-handler-collect-body       (let ([f (foreign-procedure "nng_http_handler_collect_body"       ((* nng_http_handler) boolean size_t) int)])               (lambda (handler want maxsz) (f handler want maxsz))))
+  (define nng-http-handler-set-tree           (let ([f (foreign-procedure "nng_http_handler_set_tree"           ((* nng_http_handler)) int)])                              (lambda (handler) (f handler))))
+  (define nng-http-handler-set-tree-exclusive (let ([f (foreign-procedure "nng_http_handler_set_tree_exclusive" ((* nng_http_handler)) int)])                              (lambda (handler) (f handler))))
+  (define nng-http-handler-set-data           (let ([f (foreign-procedure "nng_http_handler_set_data"           ((* nng_http_handler) void* void*) int)])                  (lambda (handler data cb) (f handler data cb))))
+  (define nng-http-handler-get-data           (let ([f (foreign-procedure "nng_http_handler_get_data"           ((* nng_http_handler)) void*)])                            (lambda (handler) (f handler))))
   (define-ftype nng_http_server (struct))
-  (define nng_http_server_hold           (let ([f (foreign-procedure "nng_http_server_hold"           ((* nng_http_server) (* nng_url)) int)])          (lambda (server url)       (f server url))))
-  (define nng_http_server_release        (let ([f (foreign-procedure "nng_http_server_release"        ((* nng_http_server)) void)])                     (lambda (server)           (f server))))
-  (define nng_http_server_start          (let ([f (foreign-procedure "nng_http_server_start"          ((* nng_http_server)) int)])                      (lambda (server)           (f server))))
-  (define nng_http_server_stop           (let ([f (foreign-procedure "nng_http_server_stop"           ((* nng_http_server)) void)])                     (lambda (server)           (f server))))
-  (define nng_http_server_add_handler    (let ([f (foreign-procedure "nng_http_server_add_handler"    ((* nng_http_server) (* nng_http_handler)) int)]) (lambda (server handler)   (f server handler))))
-  (define nng_http_server_del_handler    (let ([f (foreign-procedure "nng_http_server_del_handler"    ((* nng_http_server) (* nng_http_handler)) int)]) (lambda (server handler)   (f server handler))))
-  (define nng_http_server_set_tls        (let ([f (foreign-procedure "nng_http_server_set_tls"        ((* nng_http_server) (* nng_tls_config)) int)])   (lambda (server cfg)       (f server cfg))))
-  (define nng_http_server_get_tls        (let ([f (foreign-procedure "nng_http_server_get_tls"        ((* nng_http_server) (* nng_tls_config)) int)])   (lambda (server cfg)       (f server cfg))))
-  (define nng_http_server_get_addr       (let ([f (foreign-procedure "nng_http_server_get_addr"       ((* nng_http_server) (* nng_sockaddr)) int)])     (lambda (server socket)    (f server socket))))
-  (define nng_http_server_set_error_page (let ([f (foreign-procedure "nng_http_server_set_error_page" ((* nng_http_server) unsigned-16 string) int)])   (lambda (server code html) (f server code html))))
-  (define nng_http_server_set_error_file (let ([f (foreign-procedure "nng_http_server_set_error_file" ((* nng_http_server) unsigned-16 string) int)])   (lambda (server code path) (f server code path))))
-  (define nng_http_server_res_error      (let ([f (foreign-procedure "nng_http_server_res_error"      ((* nng_http_server) (* nng_http_res)) int)])     (lambda (server res)       (f server res))))
-  (define nng_http_hijack                (let ([f (foreign-procedure "nng_http_hijack"                ((* nng_http_conn)) int)])                        (lambda (conn)             (f conn))))
+  (define nng-http-server-hold           (let ([f (foreign-procedure "nng_http_server_hold"           ((* nng_http_server) (* nng_url)) int)])          (lambda (server url)       (f server url))))
+  (define nng-http-server-release        (let ([f (foreign-procedure "nng_http_server_release"        ((* nng_http_server)) void)])                     (lambda (server)           (f server))))
+  (define nng-http-server-start          (let ([f (foreign-procedure "nng_http_server_start"          ((* nng_http_server)) int)])                      (lambda (server)           (f server))))
+  (define nng-http-server-stop           (let ([f (foreign-procedure "nng_http_server_stop"           ((* nng_http_server)) void)])                     (lambda (server)           (f server))))
+  (define nng-http-server-add-handler    (let ([f (foreign-procedure "nng_http_server_add_handler"    ((* nng_http_server) (* nng_http_handler)) int)]) (lambda (server handler)   (f server handler))))
+  (define nng-http-server-del-handler    (let ([f (foreign-procedure "nng_http_server_del_handler"    ((* nng_http_server) (* nng_http_handler)) int)]) (lambda (server handler)   (f server handler))))
+  (define nng-http-server-set-tls        (let ([f (foreign-procedure "nng_http_server_set_tls"        ((* nng_http_server) (* nng_tls_config)) int)])   (lambda (server cfg)       (f server cfg))))
+  (define nng-http-server-get-tls        (let ([f (foreign-procedure "nng_http_server_get_tls"        ((* nng_http_server) (* nng_tls_config)) int)])   (lambda (server cfg)       (f server cfg))))
+  (define nng-http-server-get-addr       (let ([f (foreign-procedure "nng_http_server_get_addr"       ((* nng_http_server) (* nng_sockaddr)) int)])     (lambda (server socket)    (f server socket))))
+  (define nng-http-server-set-error-page (let ([f (foreign-procedure "nng_http_server_set_error_page" ((* nng_http_server) unsigned-16 string) int)])   (lambda (server code html) (f server code html))))
+  (define nng-http-server-set-error-file (let ([f (foreign-procedure "nng_http_server_set_error_file" ((* nng_http_server) unsigned-16 string) int)])   (lambda (server code path) (f server code path))))
+  (define nng-http-server-res-error      (let ([f (foreign-procedure "nng_http_server_res_error"      ((* nng_http_server) (* nng_http_res)) int)])     (lambda (server res)       (f server res))))
+  (define nng-http-hijack                (let ([f (foreign-procedure "nng_http_hijack"                ((* nng_http_conn)) int)])                        (lambda (conn)             (f conn))))
   ; (alias nni_aio nng_aio)
   (define-ftype nng_http_client
     (struct
