@@ -14,6 +14,18 @@
     nng_pipe
     nng_socket_s
     nng_socket
+
+    make-nng-ctx-s
+    make-nng-ctx
+    make-nng-dialer-s
+    make-nng-dialer
+    make-nng-listener-s
+    make-nng-listener
+    make-nng-pipe-s
+    make-nng-pipe
+    make-nng-socket-s
+    make-nng-socket
+
     nng_duration
     nng_time
     nng_msg
@@ -37,11 +49,11 @@
     nng_stream_listener
 
 
-    NNG_PIPE_INITIALIZER
-    NNG_SOCKET_INITIALIZER
-    NNG_DIALER_INITIALIZER
-    NNG_LISTENER_INITIALIZER
-    NNG_CTX_INITIALIZER
+    nng-pipe-initializer
+    nng-socket-initializer
+    nng-dialer-initializer
+    nng-listener-initializer
+    nng-ctx-initializer
 
 
 
@@ -680,15 +692,55 @@
   (define NNG_MAXADDRLEN 128)
 
   (define-ftype nng_ctx_s (struct [id unsigned-32]))
+  (define (make-nng-ctx-s id)
+    (let ([ptr (make-ftype-pointer nng_ctx_s (foreign-alloc (ftype-sizeof nng_ctx_s)))])
+      (ftype-set! nng_ctx_s (id) ptr id)
+      ptr))
   (define-ftype nng_ctx (struct [id unsigned-32]))
+  (define (make-nng-ctx id)
+    (let ([ptr (make-ftype-pointer nng_ctx (foreign-alloc (ftype-sizeof nng_ctx)))])
+      (ftype-set! nng_ctx (id) ptr id)
+      ptr))
   (define-ftype nng_dialer_s (struct [id unsigned-32]))
+  (define (make-nng-dialer-s id)
+    (let ([ptr (make-ftype-pointer nng_dialer_s (foreign-alloc (ftype-sizeof nng_dialer_s)))])
+      (ftype-set! nng_dialer_s (id) ptr id)
+      ptr))
   (define-ftype nng_dialer (struct [id unsigned-32]))
+  (define (make-nng-dialer id)
+    (let ([ptr (make-ftype-pointer nng_dialer (foreign-alloc (ftype-sizeof nng_dialer)))])
+      (ftype-set! nng_dialer (id) ptr id)
+      ptr))
   (define-ftype nng_listener_s (struct [id unsigned-32]))
+  (define (make-nng-listener-s id)
+    (let ([ptr (make-ftype-pointer nng_listener_s (foreign-alloc (ftype-sizeof nng_listener_s)))])
+      (ftype-set! nng_listener_s (id) ptr id)
+      ptr))
   (define-ftype nng_listener (struct [id unsigned-32]))
+  (define (make-nng-listener id)
+    (let ([ptr (make-ftype-pointer nng_listener (foreign-alloc (ftype-sizeof nng_listener)))])
+      (ftype-set! nng_listener (id) ptr id)
+      ptr))
   (define-ftype nng_pipe_s (struct [id unsigned-32]))
+  (define (make-nng-pipe-s id)
+    (let ([ptr (make-ftype-pointer nng_pipe_s (foreign-alloc (ftype-sizeof nng_pipe_s)))])
+      (ftype-set! nng_pipe_s (id) ptr id)
+      ptr))
   (define-ftype nng_pipe (struct [id unsigned-32]))
+  (define (make-nng-pipe id)
+    (let ([ptr (make-ftype-pointer nng_pipe (foreign-alloc (ftype-sizeof nng_pipe)))])
+      (ftype-set! nng_pipe (id) ptr id)
+      ptr))
   (define-ftype nng_socket_s (struct [id unsigned-32]))
+  (define (make-nng-socket-s id)
+    (let ([ptr (make-ftype-pointer nng_socket_s (foreign-alloc (ftype-sizeof nng_socket_s)))])
+      (ftype-set! nng_socket_s (id) ptr id)
+      ptr))
   (define-ftype nng_socket (struct [id unsigned-32]))
+  (define (make-nng-socket id)
+    (let ([ptr (make-ftype-pointer nng_socket (foreign-alloc (ftype-sizeof nng_socket)))])
+      (ftype-set! nng_socket (id) ptr id)
+      ptr))
   (define-ftype nng_duration unsigned-32) ; in milliseconds
   ; nng_time represents an absolute time since some arbitrary point in the
   ; past, measured in milliseconds.  The values are always positive.
@@ -723,11 +775,11 @@
   (define-ftype nng_aio* (* nng_aio))
 
   ; Initializers
-  (define NNG_PIPE_INITIALIZER 0)
-  (define NNG_SOCKET_INITIALIZER 0)
-  (define NNG_DIALER_INITIALIZER 0)
-  (define NNG_LISTENER_INITIALIZER 0)
-  (define NNG_CTX_INITIALIZER 0)
+  (define nng-pipe-initializer (lambda () (make-nng-pipe 0)))
+  (define nng-socket-initializer (lambda () (make-nng-socket 0)))
+  (define nng-dialer-initializer (lambda () (make-nng-dialer 0)))
+  (define nng-listener-initializer (lambda () (make-nng-listener 0)))
+  (define nng-ctx-initializer (lambda () (make-nng-ctx 0)))
 
   ; Some address details. This is in some ways like a traditional sockets
   ; sockaddr, but we have our own to cope with our unique families, etc.
