@@ -745,8 +745,29 @@
   ; nng_time represents an absolute time since some arbitrary point in the
   ; past, measured in milliseconds.  The values are always positive.
   (define-ftype nng_time unsigned-64)
-  (define-ftype nng_msg (struct))
-  (define-ftype nng_stat (struct))
+  (define-ftype nng_msg
+    (struct
+      [m_header_buf (array 16 unsigned-int)] ; NNI_MAX_MAX_TTL + 1
+      [m_header_len size_t]
+      [m_body void*]          ; nni_chunk
+      [m_pipe unsigned-int]
+      [m_refcnt void*]        ; nni_atomic_int 
+      ))
+  (define-ftype nng_stat
+    (struct
+      [s_info void*]  ; const nni_stat_info *s_info;
+      [s_item void*]  ; const nni_stat_item *s_item;
+      [s_children void*]
+      [s_parent void*]
+      [s_node void*]
+      [s_timestamp nng_time]
+      [s_val (union
+               [sv_id int]
+               [sv_bool boolean]
+               [sv_value unsigned-long-long]
+               [sv_string (* char)]
+               )]
+      ))
   (define-ftype nng_aio
     (struct
       [a_count size_t]
@@ -1382,7 +1403,20 @@
   (define nng-msg-clear             (let ([f (foreign-procedure "nng_msg_clear"             ((* nng_msg)) void)])                      (lambda (msg)          (f msg))))
   (define nng-msg-header-clear      (let ([f (foreign-procedure "nng_msg_header_clear"      ((* nng_msg)) void)])                      (lambda (msg)          (f msg))))
   (define nng-msg-set-pipe          (let ([f (foreign-procedure "nng_msg_set_pipe"          ((* nng_msg) (& nng_pipe)) void)])         (lambda (msg pipe)     (f msg pipe))))
-  (define nng-msg-get-pipe          (let ([f (foreign-procedure "nng_msg_get_pipe"          ((* nng_msg)) (& nng_pipe))])              (lambda (msg)          (f msg))))
+  ; (define nng-msg-get-pipe          (let ([f (foreign-procedure "nng_msg_get_pipe"          ((* nng_msg)) (& nng_pipe))])              (lambda (msg)          (f msg))))
+  ;; (& ftype-name): The result is interpreted as a foreign object whose structure is described by the ftype identified by ftype-name, 
+  ;; where the foreign procedure returns a ftype-name result, 
+  ;; but the caller must provide an extra (* ftype-name) argument before all other arguments to receive the result.
+  ;; An unspecified Scheme object is returned when the foreign procedure is called, 
+  ;; since the result is instead written into storage referenced by the extra argument. The ftype-name cannot refer to an array type.
+  (define nng-msg-get-pipe
+    (let ([f (foreign-procedure "nng_msg_get_pipe" ((* nng_msg)) (& nng_pipe))])
+      (case-lambda
+        [(msg)
+         (let ([fptr (make-ftype-pointer nng_pipe (foreign-alloc (ftype-sizeof nng_pipe)))])
+           (f fptr msg)
+           fptr)]
+        [(fptr msg) (f fptr msg) fptr])))
 
   ; Pipe API. Generally pipes are only "observable" to applications, but
   ; we do permit an application to close a pipe. This can be useful, for
@@ -1400,10 +1434,33 @@
 
   (define nng-pipe-close    (let ([f (foreign-procedure "nng_pipe_close"    ((& nng_pipe)) int)])              (lambda (pipe) (f pipe))))
   (define nng-pipe-id       (let ([f (foreign-procedure "nng_pipe_id"       ((& nng_pipe)) int)])              (lambda (pipe) (f pipe))))
-  (define nng-pipe-socket   (let ([f (foreign-procedure "nng_pipe_socket"   ((& nng_pipe)) (& nng_socket))])   (lambda (pipe) (f pipe))))
-  (define nng-pipe-dialer   (let ([f (foreign-procedure "nng_pipe_dialer"   ((& nng_pipe)) (& nng_dialer))])   (lambda (pipe) (f pipe))))
-  (define nng-pipe-listener (let ([f (foreign-procedure "nng_pipe_listener" ((& nng_pipe)) (& nng_listener))]) (lambda (pipe) (f pipe))))
-
+  ; (define nng-pipe-socket   (let ([f (foreign-procedure "nng_pipe_socket"   ((& nng_pipe)) (& nng_socket))])   (lambda (pipe) (f pipe))))
+  ; (define nng-pipe-dialer   (let ([f (foreign-procedure "nng_pipe_dialer"   ((& nng_pipe)) (& nng_dialer))])   (lambda (pipe) (f pipe))))
+  ; (define nng-pipe-listener (let ([f (foreign-procedure "nng_pipe_listener" ((& nng_pipe)) (& nng_listener))]) (lambda (pipe) (f pipe))))
+  (define nng-pipe-socket
+    (let ([f (foreign-procedure "nng_pipe_socket" ((& nng_pipe)) (& nng_socket))])
+      (case-lambda
+        [(pipe)
+         (let ([fptr (make-ftype-pointer nng_socket (foreign-alloc (ftype-sizeof nng_socket)))])
+           (f fptr pipe)
+           fptr)]
+        [(fptr pipe) (f fptr pipe) fptr])))
+  (define nng-pipe-dialer
+    (let ([f (foreign-procedure "nng_pipe_dialer" ((& nng_pipe)) (& nng_dialer))])
+      (case-lambda
+        [(pipe)
+         (let ([fptr (make-ftype-pointer nng_dialer (foreign-alloc (ftype-sizeof nng_dialer)))])
+           (f fptr pipe)
+           fptr)]
+        [(fptr pipe) (f fptr pipe) fptr])))
+  (define nng-pipe-listener
+    (let ([f (foreign-procedure "nng_pipe_listener" ((& nng_pipe)) (& nng_listener))])
+      (case-lambda
+        [(pipe)
+         (let ([fptr (make-ftype-pointer nng_listener (foreign-alloc (ftype-sizeof nng_listener)))])
+           (f fptr pipe)
+           fptr)]
+        [(fptr pipe) (f fptr pipe) fptr])))
   ; Flags.
   (define NNG_FLAG_ALLOC 1)    ; Recv to allocate receive buffer
   (define NNG_FLAG_NONBLOCK 2) ; Non-blocking operations
