@@ -11,19 +11,15 @@
 (library-directories "lib")
 (import (libnng nng))
 
-(define (panic-on-error r msg)
+(define (panic-on-error r who)
   (unless (= r 0)
-    (error "~s: ~d => ~a\n" msg r (nng-strerror r))))
+    (error who (nng-strerror r))))
 
-(define socket-front (make-ftype-pointer nng_socket (foreign-alloc (ftype-sizeof nng_socket))))
-(define socket-back (make-ftype-pointer nng_socket (foreign-alloc (ftype-sizeof nng_socket))))
-(ftype-set! nng_socket (id) socket-front NNG_SOCKET_INITIALIZER)
-(ftype-set! nng_socket (id) socket-back NNG_SOCKET_INITIALIZER)
+(define socket-front (nng-socket-initializer))
+(define socket-back (nng-socket-initializer))
 
-(define ls-front (make-ftype-pointer nng_listener (foreign-alloc (ftype-sizeof nng_listener))))
-(define ls-back (make-ftype-pointer nng_listener (foreign-alloc (ftype-sizeof nng_listener))))
-(ftype-set! nng_listener (id) ls-front NNG_LISTENER_INITIALIZER)
-(ftype-set! nng_listener (id) ls-back NNG_LISTENER_INITIALIZER)
+(define ls-front (nng-listener-initializer))
+(define ls-back (nng-listener-initializer))
 
 (panic-on-error (nng-sub-open-raw socket-front) "Failed to open front end socket")
 (panic-on-error (nng-pub-open-raw socket-back) "Failed to open back end socket")
@@ -33,7 +29,11 @@
 (panic-on-error (nng-listener-start ls-front 0) "Failed to start front listener")
 (panic-on-error (nng-listener-start ls-back 0) "Failed to start back listener")
 
-(panic-on-error (nng-device socket-front socket-back) "Failed to connect sockets with nng-device")
+; (panic-on-error (nng-device socket-front socket-back) "Failed to connect sockets with nng-device")
 
+(fork-thread (lambda () (panic-on-error (nng-device socket-front socket-back) "Failed to connect sockets with nng-device")))
+(fork-thread (lambda () (system "sleep 1") (system "nngcat --sub --dial \"tcp://localhost:3328\" --quoted")))
+(fork-thread (lambda () (system "sleep 1") (system "nngcat --sub --dial \"tcp://localhost:3328\" --quoted")))
+(thread-join (fork-thread (lambda () (system "sleep 2") (system "for n in $(seq 1 10);do nngcat --pub --dial \"tcp://localhost:3327\" --data \"$n\";done"))))
 
 (printf "done\n")
