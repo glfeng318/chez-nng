@@ -29,7 +29,9 @@
     nng_duration
     nng_time
     nng_msg
+    nng_msg*
     nng_stat
+    nng_stat*
     nng_aio
     nng_aio*
     nng_sockaddr_inproc
@@ -46,9 +48,11 @@
     nng_url
     nng_url*
     nng_stream
+    nng_stream*
     nng_stream_dialer
+    nng_stream_dialer*
     nng_stream_listener
-
+    nng_stream_listener*
 
     nng-pipe-initializer
     nng-socket-initializer
@@ -202,15 +206,15 @@
     nng-aio-finish
     nng-aio-defer
     nng-sleep-aio
-    nng_msg_alloc
-    nng_msg_free
-    nng_msg_realloc
-    nng_msg_reserve
-    nng_msg_capacity
-    nng_msg_header
-    nng_msg_header_len
-    nng_msg_body
-    nng_msg_len
+    nng-msg-alloc
+    nng-msg-free
+    nng-msg-realloc
+    nng-msg-reserve
+    nng-msg-capacity
+    nng-msg-header
+    nng-msg-header-len
+    nng-msg-body
+    nng-msg-len
     nng-msg-append
     nng-msg-insert
     nng-msg-trim
@@ -756,12 +760,13 @@
   (define-ftype nng_time unsigned-64)
   (define-ftype nng_msg
     (struct
-      [m_header_buf (array 16 unsigned-int)] ; NNI_MAX_MAX_TTL + 1
+      [m_header_buf (array 16 unsigned-32)] ; NNI_MAX_MAX_TTL + 1
       [m_header_len size_t]
       [m_body void*]          ; nni_chunk
-      [m_pipe unsigned-int]
+      [m_pipe unsigned-32]
       [m_refcnt void*]        ; nni_atomic_int 
       ))
+  (define-ftype nng_msg* (* nng_msg))
   (define-ftype nng_stat
     (struct
       [s_info void*]  ; const nni_stat_info *s_info;
@@ -777,6 +782,7 @@
                [sv_string (* char)]
                )]
       ))
+  (define-ftype nng_stat* (* nng_stat))
   (define-ftype nng_aio
     (struct
       [a_count size_t]
@@ -1098,7 +1104,7 @@
   ; about where the message came from, access raw headers, etc.  It also
   ; can be passed off directly to nng_sendmsg.
   ; NNG_DECL int nng_recvmsg(nng_socket, nng_msg **, int);
-  (define nng-recvmsg (let ([f (foreign-procedure "nng_recvmsg" ((& nng_socket) (* nng_msg) int) int)]) (lambda (socket msgp flags) (f socket msgp flags))))
+  (define nng-recvmsg (let ([f (foreign-procedure "nng_recvmsg" ((& nng_socket) (* nng_msg*) int) int)]) (lambda (socket msgp flags) (f socket msgp flags))))
 
   ; nng_send_aio sends data on the socket asynchronously.  As with nng_send,
   ; the completion may be executed before the data has actually been delivered,
@@ -1150,7 +1156,7 @@
   ; a context.  It has the same semantics as nng_recvmsg, but operates
   ; on a context instead of a socket.
   ; NNG_DECL int nng_ctx_recvmsg(nng_ctx, nng_msg **, int);
-  (define nng-ctx-recvmsg (let ([f (foreign-procedure "nng_ctx_recvmsg" ((& nng_ctx) (* nng_msg) int) int)]) (lambda (ctx msgp flags) (f ctx msgp flags))))
+  (define nng-ctx-recvmsg (let ([f (foreign-procedure "nng_ctx_recvmsg" ((& nng_ctx) (* nng_msg*) int) int)]) (lambda (ctx msgp flags) (f ctx msgp flags))))
 
   ; nng_ctx_send sends asynchronously. It works like nng_send_aio, but
   ; uses a local context instead of the socket global context.
@@ -1228,7 +1234,7 @@
   ; locks held.
   ; NNG_DECL int nng_aio_alloc(nng_aio **, void (*)(void *), void *);
   (define-callback make-nng-aio-alloc-cb (void*) void)
-  (define nng-aio-alloc (let ([f (foreign-procedure "nng_aio_alloc" ((* nng_aio*) void* void*) int)]) (lambda (aiop cb arg) (f aiop cb arg))))
+  (define nng-aio-alloc (let ([f (foreign-procedure __collect_safe "nng_aio_alloc" ((* nng_aio*) void* void*) int)]) (lambda (aiop cb arg) (f aiop cb arg))))
 
   ; nng_aio_free frees the AIO and any associated resources.
   ; It *must not* be in use at the time it is freed.
@@ -1372,15 +1378,15 @@
 
 
   ;; Message API
-  (define nng_msg_alloc             (let ([f (foreign-procedure "nng_msg_alloc"             ((* nng_msg) size_t) int)])                (lambda (msgp size)    (f msgp size))))
-  (define nng_msg_free              (let ([f (foreign-procedure "nng_msg_free"              ((* nng_msg)) void)])                      (lambda (msg)          (f msg))))
-  (define nng_msg_realloc           (let ([f (foreign-procedure "nng_msg_realloc"           ((* nng_msg) size_t) int)])                (lambda (msg size)     (f msg size))))
-  (define nng_msg_reserve           (let ([f (foreign-procedure "nng_msg_reserve"           ((* nng_msg) size_t) int)])                (lambda (msg capacity) (f msg capacity))))
-  (define nng_msg_capacity          (let ([f (foreign-procedure "nng_msg_capacity"          ((* nng_msg)) size_t)])                    (lambda (msg)          (f msg))))
-  (define nng_msg_header            (let ([f (foreign-procedure "nng_msg_header"            ((* nng_msg)) void*)])                     (lambda (msg)          (f msg))))
-  (define nng_msg_header_len        (let ([f (foreign-procedure "nng_msg_header_len"        ((* nng_msg)) size_t)])                    (lambda (msg)          (f msg))))
-  (define nng_msg_body              (let ([f (foreign-procedure "nng_msg_body"              ((* nng_msg)) void*)])                     (lambda (msg)          (f msg))))
-  (define nng_msg_len               (let ([f (foreign-procedure "nng_msg_len"               ((* nng_msg)) size_t)])                    (lambda (msg)          (f msg))))
+  (define nng-msg-alloc             (let ([f (foreign-procedure "nng_msg_alloc"             ((* nng_msg*) size_t) int)])               (lambda (msgp size)    (f msgp size))))
+  (define nng-msg-free              (let ([f (foreign-procedure "nng_msg_free"              ((* nng_msg)) void)])                      (lambda (msg)          (f msg))))
+  (define nng-msg-realloc           (let ([f (foreign-procedure "nng_msg_realloc"           ((* nng_msg) size_t) int)])                (lambda (msg size)     (f msg size))))
+  (define nng-msg-reserve           (let ([f (foreign-procedure "nng_msg_reserve"           ((* nng_msg) size_t) int)])                (lambda (msg capacity) (f msg capacity))))
+  (define nng-msg-capacity          (let ([f (foreign-procedure "nng_msg_capacity"          ((* nng_msg)) size_t)])                    (lambda (msg)          (f msg))))
+  (define nng-msg-header            (let ([f (foreign-procedure "nng_msg_header"            ((* nng_msg)) void*)])                     (lambda (msg)          (f msg))))
+  (define nng-msg-header-len        (let ([f (foreign-procedure "nng_msg_header_len"        ((* nng_msg)) size_t)])                    (lambda (msg)          (f msg))))
+  (define nng-msg-body              (let ([f (foreign-procedure "nng_msg_body"              ((* nng_msg)) void*)])                     (lambda (msg)          (f msg))))
+  (define nng-msg-len               (let ([f (foreign-procedure "nng_msg_len"               ((* nng_msg)) size_t)])                    (lambda (msg)          (f msg))))
   (define nng-msg-append            (let ([f (foreign-procedure "nng_msg_append"            ((* nng_msg) void* size_t) int)])          (lambda (msg val size) (f msg val size))))
   (define nng-msg-insert            (let ([f (foreign-procedure "nng_msg_insert"            ((* nng_msg) void* size_t) int)])          (lambda (msg val size) (f msg val size))))
   (define nng-msg-trim              (let ([f (foreign-procedure "nng_msg_trim"              ((* nng_msg) size_t) int)])                (lambda (msg size)     (f msg size))))
@@ -1413,7 +1419,7 @@
   (define nng-msg-trim-u16          (let ([f (foreign-procedure "nng_msg_trim_u16"          ((* nng_msg) (* unsigned-16)) int)])       (lambda (msg val16)    (f msg val16))))
   (define nng-msg-trim-u32          (let ([f (foreign-procedure "nng_msg_trim_u32"          ((* nng_msg) (* unsigned-32)) int)])       (lambda (msg val32)    (f msg val32))))
   (define nng-msg-trim-u64          (let ([f (foreign-procedure "nng_msg_trim_u64"          ((* nng_msg) (* unsigned-64)) int)])       (lambda (msg val64)    (f msg val64))))
-  (define nng-msg-dup               (let ([f (foreign-procedure "nng_msg_dup"               ((* nng_msg) (* nng_msg)) int)])           (lambda (dup orig)     (f dup orig))))
+  (define nng-msg-dup               (let ([f (foreign-procedure "nng_msg_dup"               ((* nng_msg*) (* nng_msg)) int)])           (lambda (dup orig)     (f dup orig))))
   (define nng-msg-clear             (let ([f (foreign-procedure "nng_msg_clear"             ((* nng_msg)) void)])                      (lambda (msg)          (f msg))))
   (define nng-msg-header-clear      (let ([f (foreign-procedure "nng_msg_header_clear"      ((* nng_msg)) void)])                      (lambda (msg)          (f msg))))
   (define nng-msg-set-pipe          (let ([f (foreign-procedure "nng_msg_set_pipe"          ((* nng_msg) (& nng_pipe)) void)])         (lambda (msg pipe)     (f msg pipe))))
@@ -1719,7 +1725,7 @@
   ; Applications may choose to consider this root scope as "root", if
   ; the empty string is not suitable.
   ; NNG_DECL int nng_stats_get(nng_stat **);
-  (define nng-stats-get (let ([f (foreign-procedure "nng_stats_get" ((* nng_stat)) int)]) (lambda (stat) (f stat))))
+  (define nng-stats-get (let ([f (foreign-procedure "nng_stats_get" ((* nng_stat*)) int)]) (lambda (stat) (f stat))))
 
   ; nng_stats_free frees a previous list of snapshots.  This should only
   ; be called on the parent statistic that obtained via nng_stats_get.
@@ -1930,7 +1936,7 @@
 
   ; nng_url_clone clones a URL structure.
   ; NNG_DECL int nng_url_clone(nng_url **, const nng_url *);
-  (define nng-url-clone (let ([f (foreign-procedure "nng_url_clone" ((* nng_url) (* nng_url)) int)]) (lambda (dup orig) (f dup orig))))
+  (define nng-url-clone (let ([f (foreign-procedure "nng_url_clone" ((* nng_url*) (* nng_url)) int)]) (lambda (dup orig) (f dup orig))))
 
   ; nng_version returns the library version as a human readable string.
   ; NNG_DECL const char *nng_version(void);
@@ -1940,9 +1946,36 @@
   ; which can have a variety of uses.  Internally most of the transports
   ; are built on top of these.  Streams are created by other dialers or
   ; listeners.  The API for creating dialers and listeners varies.
-  (define-ftype nng_stream          (struct))
-  (define-ftype nng_stream_dialer   (struct))
-  (define-ftype nng_stream_listener (struct))
+  (define-ftype nng_stream
+    (struct
+      [s_free (* (function (void*) void))]
+      [s_close (* (function (void*) void))]
+      [s_recv (* (function (void* (* nng_aio)) void))]
+      [s_send (* (function (void* (* nng_aio)) void))]
+      [s_get (* (function (void* string (* size_t) void*) int))]
+      [s_set (* (function (void* string void* size_t void*) int))]
+      ))
+  (define-ftype nng_stream_dialer
+    (struct
+      [sd_free (* (function (void*) void))]
+      [sd_close (* (function (void*) void))]
+      [sd_recv (* (function (void* (* nng_aio)) void))]
+      [sd_send (* (function (void* (* nng_aio)) void))]
+      [sd_get (* (function (void* string (* size_t) void*) int))]
+      [sd_set (* (function (void* string void* size_t void*) int))]
+      ))
+  (define-ftype nng_stream_listener
+    (struct
+      [sl_free (* (function (void*) void))]
+      [sl_close (* (function (void*) void))]
+      [sl_listen (* (function (void*) int))]
+      [sl_accept (* (function (void* (* nng_aio)) void))]
+      [sl_get (* (function (void* string (* size_t) void*) int))]
+      [sl_set (* (function (void* string void* size_t void*) int))]
+      ))
+  (define-ftype nng_stream* (* nng_stream))
+  (define-ftype nng_stream_dialer* (* nng_stream_dialer))
+  (define-ftype nng_stream_listener* (* nng_stream_listener))
 
   (define nng-stream-free  (let ([f (foreign-procedure "nng_stream_free"  ((* nng_stream)) void)])             (lambda (stream)     (f stream))))
   (define nng-stream-close (let ([f (foreign-procedure "nng_stream_close" ((* nng_stream)) void)])             (lambda (stream)     (f stream))))
@@ -1995,8 +2028,8 @@
   (define nng-stream-dialer-get-ms     (let ([f (foreign-procedure "nng_stream_dialer_get_ms"     ((* nng_stream_dialer) string (* nng_duration)) int)]) (lambda (d opt valp)       (f d opt valp))))
   (define nng-stream-dialer-get-addr   (let ([f (foreign-procedure "nng_stream_dialer_get_addr"   ((* nng_stream_dialer) string (* nng_sockaddr)) int)]) (lambda (d opt valp)       (f d opt valp))))
   
-  (define nng-stream-listener-alloc     (let ([f (foreign-procedure "nng_stream_listener_alloc"     ((* nng_stream_listener) string) int)])       (lambda (lp addr) (f lp addr))))
-  (define nng-stream-listener-alloc-url (let ([f (foreign-procedure "nng_stream_listener_alloc_url" ((* nng_stream_listener) (* nng_url)) int)])  (lambda (lp url)  (f lp url))))
+  (define nng-stream-listener-alloc     (let ([f (foreign-procedure "nng_stream_listener_alloc"     ((* nng_stream_listener*) string) int)])       (lambda (lp addr) (f lp addr))))
+  (define nng-stream-listener-alloc-url (let ([f (foreign-procedure "nng_stream_listener_alloc_url" ((* nng_stream_listener*) (* nng_url)) int)])  (lambda (lp url)  (f lp url))))
   (define nng-stream-listener-free      (let ([f (foreign-procedure "nng_stream_listener_free"      ((* nng_stream_listener)) void)])             (lambda (l)       (f l))))
   (define nng-stream-listener-close     (let ([f (foreign-procedure "nng_stream_listener_close"     ((* nng_stream_listener)) void)])             (lambda (l)       (f l))))
   (define nng-stream-listener-listen    (let ([f (foreign-procedure "nng_stream_listener_listen"    ((* nng_stream_listener)) int)])              (lambda (l)       (f l))))
