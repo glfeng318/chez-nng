@@ -23,8 +23,7 @@
 (define on-complete
   (make-nng-aio-alloc-cb
     (lambda (arg)
-      (printf "arg:~a\n" arg)
-      ; (foreign-free (ftype-pointer-address arg))
+      (printf "callbacl with arg:~a\n" arg)
       )))
 
 
@@ -47,7 +46,7 @@
 (fatal 'nng-http-res-alloc (nng-http-res-alloc res))
 ; (printf "res: ~a\n" (ftype-pointer->sexpr res))
 
-(fatal 'nng-aio-alloc (nng-aio-alloc aio 0 0))
+(fatal 'nng-aio-alloc (nng-aio-alloc aio on-complete (ftype-pointer-address (make-ftype-null nng_url))))
 ; (printf "aio: ~a\n" aio)
 ; (printf "aio: ~a\n" (ftype-pointer->sexpr aio))
 ; (printf "aio: ~a\n" (ftype-pointer->sexpr (ftype-ref nng_aio* () aio)))
