@@ -698,7 +698,7 @@
   (define lib
     (load-shared-object
       (case (machine-type)
-            ((a6osx i3osx ta6osx ti3osx) "/opt/homebrew/Cellar/nng/1.7.3/lib/libnng.1.7.3.dylib")
+            ((a6osx i3osx ta6osx ti3osx arm64osx tarm64osx) "/opt/homebrew/Cellar/nng/1.7.3/lib/libnng.1.7.3.dylib")
             ((a6le i3le ta6le ti3le) "libnng.so")
             (else "libnng.so"))))
 

@@ -3,12 +3,13 @@
 ;;
 ;; An example setup for running this example would involve the following:
 ;;
-;;  - Run this example `scheme --script nng-pubsub-forwarder.ss` (in the background or a terminal, etc)
+;;  - Run this example `scheme --script pubsub-forwarder.ss` (in the background or a terminal, etc)
 ;;  - In a new terminal, run `nngcat --sub --dial "tcp://localhost:3328" --quoted`
 ;;  - In a new terminal, run `nngcat --sub --dial "tcp://localhost:3328" --quoted`
 ;;  - In a new terminal, run `for n in $(seq 0 99);do nngcat --pub --dial "tcp://localhost:3327" --data "$n";done`
 
-(library-directories "lib")
+;(library-directories "lib")
+(library-directories '(("." . ".") ("lib" . "lib")))
 (import (libnng nng))
 
 (define (panic-on-error r who)

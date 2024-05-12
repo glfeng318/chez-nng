@@ -1,11 +1,13 @@
 ;;
-;; scheme --script nng-http-client.ss http://httpbin.org/ip
+;; scheme --script http-client.ss http://httpbin.org/ip
 ;;
-(library-directories "lib")
+
+;(library-directories "lib")
+(library-directories '(("." . ".") ("lib" . "lib")))
 (import (libnng nng))
 
 (when (= 1 (length (command-line)))
-  (error 'nng-http-client "No URL supplied!")
+  (error 'http-client "No URL supplied!")
   (exit 1))
 
 (define (fatal who r)
