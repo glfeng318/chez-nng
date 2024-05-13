@@ -5,15 +5,6 @@ demos are derived from [nng/demo](https://github.com/nanomsg/nng/tree/master/dem
 scheme --script http-client.ss http://httpbin.org/ip
 ```
 
-## pipeline
-```
-# node 0
-chez --script ./demo/pipeline.ss ipc:///tmp/pipeline.ipc
-
-# node 1
-chez --script ./demo/pipeline.ss ipc:///tmp/pipeline.ipc hello
-```
-
 ## pubsub-forwarder
 ```
 scheme --script pubsub-forwarder.ss
@@ -37,4 +28,18 @@ scheme --script raw.ss tcp://127.0.0.1:5555 -s
 scheme --script raw.ss tcp://127.0.0.1:5555 2 &
 scheme --script raw.ss tcp://127.0.0.1:5555 2 &
 scheme --script raw.ss tcp://127.0.0.1:5555 2 &
+```
+
+## Pipeline (A One-Way Pipe)
+
+![img](https://nanomsg.org/gettingstarted/pipeline.png)
+
+This pattern is useful for solving producer/consumer problems, including load-balancing. Messages flow from the push side to the pull side. If multiple peers are connected, the pattern attempts to distribute fairly.
+
+```
+# node 0
+chez --script ./demo/pipeline.ss ipc:///tmp/pipeline.ipc
+
+# node 1
+chez --script ./demo/pipeline.ss ipc:///tmp/pipeline.ipc hello
 ```
