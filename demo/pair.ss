@@ -33,7 +33,13 @@
     
     ))
 (define (send-recv sock name)
-  (fatal 'nng-socket-set-ms (nng-socket-set-ms sock NNG_OPT_RECVTIMEO (make-ftype-pointer nng_duration (foreign-alloc (ftype-sizeof nng_duration)))))
+  (fatal 'nng-socket-set-ms 
+         (nng-socket-set-ms
+           sock
+           NNG_OPT_RECVTIMEO
+           (let ([ptr (make-ftype-pointer nng_duration (foreign-alloc (ftype-sizeof nng_duration)))])
+             (ftype-set! nng_duration () ptr 100)
+             ptr)))
   (do ()
       (#f)
       (begin
