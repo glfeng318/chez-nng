@@ -1,16 +1,12 @@
 ;;
-;; scheme --script req-rep.ss node0 ipc:///tmp/reqrep.ipc
-;; scheme --script req-rep.ss node1 ipc:///tmp/reqrep.ipc
+;; scheme --script nng-req-rep.ss node0 ipc:///tmp/req-rep.ipc
+;; scheme --script nng-req-rep.ss node1 ipc:///tmp/req-rep.ipc
 ;;
 
-(library-directories '(("." . ".") ("lib" . "lib")))
+(library-directories "lib")
 (import (libnng nng))
 
 (define DATE "DATE")
-
-(when (= 1 (length (command-line)))
-  (error 'nng-http-client "No URL supplied!")
-  (exit 1))
 
 (define (fatal who r)
   (unless (= 0 r)
@@ -63,9 +59,9 @@
 
 (let ([args (command-line)])
   (unless (> (length args) 2)
-    (printf "Usage: scheme --script req-rep.ss node0|node1 ipc:///tmp/reqrep.ipc\n")
+    (printf "Usage: scheme --script req-rep.ss node0|node1 ipc:///tmp/req-rep.ipc\n")
     (exit 1))
   (case (cadr args)
     ["node0" (node0 (caddr args))]
     ["node1" (node1 (caddr args))]
-    [else (printf "Usage: scheme --script req-rep.ss node0|node1 ipc:///tmp/reqrep.ipc\n")]))
+    [else (printf "Usage: scheme --script req-rep.ss ipc:///tmp/req-rep.ipc req|rep\n")]))
