@@ -54,3 +54,13 @@ scheme --script req-rep.ss node0 ipc:///tmp/req-rep.ipc
 scheme --script req-rep.ss node1 ipc:///tmp/req-rep.ipc
 ```
 
+## Pair (Two Way Radio)
+
+![](https://nanomsg.org/gettingstarted/pair.png)
+
+The pair pattern is used when there a one-to-one peer relationship. Only one peer may be connected to another peer at a time, but both may speak freely.
+
+```
+scheme --script pair.ss node0 ipc:///tmp/pair.ipc
+scheme --script pair.ss node1 ipc:///tmp/pair.ipc
+```
