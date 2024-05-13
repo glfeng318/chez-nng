@@ -25,7 +25,7 @@
 (define on-complete
   (make-nng-aio-alloc-cb
     (lambda (arg)
-      (printf "callbacl with arg:~a\n" arg)
+      (printf "callback with arg:~a\n" arg)
       )))
 
 
