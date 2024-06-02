@@ -108,5 +108,5 @@
 (nng-aio-wait (ftype-ref nng_aio* () aio))
 (fatal 'nng-http-conn-read-all (nng-aio-result (ftype-ref nng_aio* () aio)))
 
-(printf "\n~a\n" (list->string (map (lambda (i) (foreign-ref 'char data i)) (iota len))))
+(printf "\nreponse:\n~a\n" (list->string (map (lambda (i) (foreign-ref 'char data i)) (iota len))))
 

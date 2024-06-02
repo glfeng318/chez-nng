@@ -16,3 +16,5 @@
              (let ([code (foreign-callable __collect_safe p args ret)])
                (lock-object code)
                (foreign-callable-entry-point code))))])))
+
+(alias define-fn define-callback)

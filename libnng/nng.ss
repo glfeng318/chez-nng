@@ -94,6 +94,8 @@
     nng-socket-get-ptr
     nng-socket-get-ms
     nng-socket-get-addr
+    NNG_MAXADDRSTRLEN
+    nng-str-sockaddr
     NNG_PIPE_EV_ADD_PRE
     NNG_PIPE_EV_ADD_POST
     NNG_PIPE_EV_REM_POST
@@ -458,6 +460,39 @@
     nng-stream-listener-get-ptr
     nng-stream-listener-get-ms
     nng-stream-listener-get-addr
+
+    ;; logger
+    NNG_LOG_NONE
+	  NNG_LOG_ERR
+	  NNG_LOG_WARN
+	  NNG_LOG_NOTICE
+	  NNG_LOG_INFO
+	  NNG_LOG_DEBUG
+	  NNG_LOG_USER
+	  NNG_LOG_DAEMON
+	  NNG_LOG_AUTH
+	  NNG_LOG_LOCAL0
+	  NNG_LOG_LOCAL1
+	  NNG_LOG_LOCAL2
+	  NNG_LOG_LOCAL3
+	  NNG_LOG_LOCAL4
+	  NNG_LOG_LOCAL5
+	  NNG_LOG_LOCAL6
+	  NNG_LOG_LOCAL7
+    make-nng-logger
+    nng-null-logger
+    nng-stderr-logger
+    nng-system-logger
+    nng-log-set-facility
+    nng-log-set-level
+    nng-log-get-level
+    nng-log-set-logger
+    nng-log-err
+    ; nng-log-warn
+    ; nng-log-notice
+    ; nng-log-info
+    ; nng-log-debug
+    ; nng-log-auth
     
     ;;
     ;; protocol
@@ -698,7 +733,7 @@
   (define lib
     (load-shared-object
       (case (machine-type)
-            ((a6osx i3osx ta6osx ti3osx arm64osx tarm64osx) "/opt/homebrew/Cellar/nng/1.7.3/lib/libnng.1.7.3.dylib")
+            ((a6osx i3osx ta6osx ti3osx arm64osx tarm64osx) "/opt/homebrew/Cellar/nng/1.8.0/lib/libnng.1.8.0.dylib")
             ((a6le i3le ta6le ti3le) "libnng.so")
             (else "libnng.so"))))
 
@@ -949,6 +984,17 @@
   (define nng-socket-get-ptr    (let ([f (foreign-procedure "nng_socket_get_ptr"    ((& nng_socket) string void*) int)])            (lambda (socket opt ptr)        (f socket opt ptr))))
   (define nng-socket-get-ms     (let ([f (foreign-procedure "nng_socket_get_ms"     ((& nng_socket) string (* nng_duration)) int)]) (lambda (socket opt durp)       (f socket opt durp))))
   (define nng-socket-get-addr   (let ([f (foreign-procedure "nng_socket_get_addr"   ((& nng_socket) string (* nng_sockaddr)) int)]) (lambda (socket opt addrp)      (f socket opt addrp))))
+
+  ; Utility function for getting a printable form of the socket address
+  ; for display in logs, etc.  It is not intended to be parsed, and the
+  ; display format may change without notice.  Generally you should alow
+  ; at least NNG_MAXADDRSTRLEN if you want to avoid typical truncations.
+  ; It is still possible for very long IPC paths to be truncated, but that
+  ; is an edge case and applications that pass such long paths should
+  ; expect some truncation (but they may pass larger values).
+  (define NNG_MAXADDRSTRLEN (+ NNG_MAXADDRLEN 16)) ; extra bytes for scheme
+  ; NNG_DECL const char *nng_str_sockaddr(const nng_sockaddr *sa, char *buf, size_t bufsz);
+  (define nng-str-sockaddr(let ([f (foreign-procedure "nng_str_sockaddr" ((* nng_sockaddr) string size_t) string)]) (lambda (socket-addr buf buf-size) (f socket-addr buf buf-size))))
 
   ; Arguably the pipe callback functions could be handled as an option,
   ; but with the need to specify an argument, we find it best to unify
@@ -2056,7 +2102,92 @@
   
 
   ;; Logging support.
-  ;; not binding yet
+  ;; Log levels.  These correspond to RFC 5424 (syslog) levels.
+  ;; NNG never only uses priorities 3 - 7.
+  ;;
+  ;; Note that LOG_EMER is 0, but we don't let applications submit'
+  ;; such messages, so this is a useful value to prevent logging altogether.
+	(define NNG_LOG_NONE   0)  ; used for filters only, NNG suppresses these
+	(define NNG_LOG_ERR    3)
+	(define NNG_LOG_WARN   4)
+	(define NNG_LOG_NOTICE 5)
+	(define NNG_LOG_INFO   6)
+	(define NNG_LOG_DEBUG  7)
+  ;; Facilities.  Also from RFC 5424.
+  ;; Not all values are enumerated here. Values not enumerated here
+  ;; should be assumed reserved for system use, and not available for
+  ;; NNG or general applications.
+	(define NNG_LOG_USER    1)
+	(define NNG_LOG_DAEMON  3)
+	(define NNG_LOG_AUTH   10)  ; actually AUTHPRIV, for sensitive logs
+	(define NNG_LOG_LOCAL0 16)
+	(define NNG_LOG_LOCAL1 17)
+	(define NNG_LOG_LOCAL2 18)
+	(define NNG_LOG_LOCAL3 19)
+	(define NNG_LOG_LOCAL4 20)
+	(define NNG_LOG_LOCAL5 21)
+	(define NNG_LOG_LOCAL6 22)
+	(define NNG_LOG_LOCAL7 23)
+
+  ; Logging function, which may be supplied by application code.  Only
+  ; one logging function may be registered.  The level and facility are
+  ; as above.  The message ID is chosen by the submitter - internal NNG
+  ; messages will have MSGIDs starting with "NNG-".  The MSGID should be
+  ; not more than 8 characters, though this is not a hard requirement.
+  ; Loggers are required ot make a copy of the msgid and message if required,
+  ; because the values will not be valid once the logger returns.
+  ; typedef void (*nng_logger)(nng_log_level level, nng_log_facility facility, const char *msgid, const char *msg);
+  (define-fn make-nng-logger (int int (* char) (* char)) void)
+
+  ; Discard logger, simply throws logs away.
+  ; NNG_DECL void nng_null_logger(nng_log_level, nng_log_facility, const char *, const char *);
+  (define nng-null-logger (let ([f (foreign-procedure "nng_null_logger" (int int (* char) (* char)) void)]) (lambda (level facility msg-id msg) (f level facility msg-id msg))))
+  
+  ; Very simple, prints formatted messages to stderr.
+  ; NNG_DECL void nng_stderr_logger(nng_log_level, nng_log_facility, const char *, const char *);
+  (define nng-stderr-logger (let ([f (foreign-procedure "nng_stderr_logger" (int int (* char) (* char)) void)]) (lambda (level facility msg-id msg) (f level facility msg-id msg))))
+  
+  ; Performs an appropriate logging function for the system.  On
+  ; POSIX systems it uses syslog(3).  Details vary by system, and the
+  ; logging may be influenced by other APIs not provided by NNG, such as
+  ; openlog() for POSIX systems.  This may be nng_stderr_logger on
+  ; other systems.
+  ; NNG_DECL void nng_system_logger(nng_log_level, nng_log_facility, const char *, const char *);
+  (define nng-system-logger (let ([f (foreign-procedure "nng_system_logger" (int int (* char) (* char)) void)]) (lambda (level facility msg-id msg) (f level facility msg-id msg))))
+
+  ; Set the default facility to use when logging.  NNG uses NNG_LOG_USER by
+  ; default.
+  ; NNG_DECL void nng_log_set_facility(nng_log_facility facility);
+  (define nng-log-set-facility (let ([f (foreign-procedure "nng_log_set_facility" (int) void)]) (lambda (facility) (f facility))))
+  
+  ; Set the default logging level.  Use NNG_LOG_DEBUG to get everything.
+  ; Use NNG_LOG_NONE to prevent logging altogether.  Logs that are less
+  ; severe (numeric level is higher) will be discarded.
+  ; NNG_DECL void nng_log_set_level(nng_log_level level);
+  (define nng-log-set-level (let ([f (foreign-procedure "nng_log_set_level" (int) void)]) (lambda (level) (f level))))
+  
+  ; Get the current logging level.  The intention here os to allow
+  ; bypassing expensive formatting operations that will be discarded
+  ; anyway.
+  ; NNG_DECL nng_log_level nng_log_get_level(void);
+  (define nng-log-get-level (let ([f (foreign-procedure "nng_log_get_level" () int)]) (lambda () (f))))
+  
+  ; Register a logger.
+  ; NNG_DECL void nng_log_set_logger(nng_logger logger);
+  (define nng-log-set-logger (let ([f (foreign-procedure "nng_log_set_logger" (void*) void)]) (lambda (logger) (f logger))))
+  
+  ; Log a message.  The msg is formatted using following arguments as per
+  ; sprintf. The msgid may be NULL.
+  ; NNG_DECL void nng_log_err(const char *msgid, const char *msg, ...)
+  (define nng-log-err (let ([f (foreign-procedure "nng_log_err" ((* char) (* char)) void)]) (lambda (msg-id msg) (f msg-id msg))))
+  ; NNG_DECL void nng_log_warn(const char *msgid, const char *msg, ...)
+  ; NNG_DECL void nng_log_notice(const char *msgid, const char *msg, ...)
+  ; NNG_DECL void nng_log_info(const char *msgid, const char *msg, ...)
+  ; NNG_DECL void nng_log_debug(const char *msgid, const char *msg, ...)
+  
+  ; Log an authentication related message.  These will use the NNG_LOG_AUTH
+  ; facility.
+  ; NNG_DECL void nng_log_auth(nng_log_level level, const char *msgid, const char *msg, ...);
 
   ;;
   ;; protocol
