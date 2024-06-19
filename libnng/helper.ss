@@ -2,11 +2,14 @@
 ;; helper.ss
 ;;
 
+; (make-ftype-null int)
 (define-syntax make-ftype-null
   (syntax-rules ()
     ((_ type)
       (make-ftype-pointer type #x00000000))))
 
+; (define-callback make-on-close (void*) void)
+; (define on-close (make-on-close (lambda (p) (printf "~a\n" p))))
 (define-syntax define-callback
   (lambda (x)
     (syntax-case x ()
