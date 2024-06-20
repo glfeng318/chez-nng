@@ -681,6 +681,7 @@
     nng-http-res-reset
 
     nng_http_handler
+    nng_http_handler*
     nng-http-handler-alloc              
     nng-http-handler-free               
     nng-http-handler-alloc-file         
@@ -696,6 +697,7 @@
     nng-http-handler-get-data           
 
     nng_http_server
+    nng_http_server*
     nng-http-server-hold           
     nng-http-server-release        
     nng-http-server-start          
@@ -724,6 +726,7 @@
     ;
     make-ftype-null
     define-callback
+    define-fn
 
     )
   (import (chezscheme))
@@ -734,7 +737,7 @@
     (load-shared-object
       (case (machine-type)
             ((a6osx i3osx ta6osx ti3osx arm64osx tarm64osx) "/opt/homebrew/Cellar/nng/1.8.0/lib/libnng.1.8.0.dylib")
-            ((a6le i3le ta6le ti3le) "libnng.so")
+            ((a6le i3le ta6le ti3le) "/usr/local/lib/libnng.so")
             (else "libnng.so"))))
 
   (define NNG_MAXADDRLEN 128)
@@ -2100,6 +2103,9 @@
   (define nng-stream-listener-get-ms     (let ([f (foreign-procedure "nng_stream_listener_get_ms"     ((* nng_stream_listener) string (* nng_duration)) int)]) (lambda (l opt valp)       (f l opt valp))))
   (define nng-stream-listener-get-addr   (let ([f (foreign-procedure "nng_stream_listener_get_addr"   ((* nng_stream_listener) string (* nng_sockaddr)) int)]) (lambda (l opt valp)       (f l opt valp))))
   
+  ;; UDP operations.  These are provided for convenience,
+  ;; and should be considered somewhat experimental.
+
 
   ;; Logging support.
   ;; Log levels.  These correspond to RFC 5424 (syslog) levels.
@@ -2420,13 +2426,30 @@
   (define nng-http-conn-read-res  (let ([f (foreign-procedure "nng_http_conn_read_res"  ((* nng_http_conn) (* nng_http_res) (* nng_aio)) void)]) (lambda (conn res aio) (f conn res aio))))
   (define nng-http-req-reset      (let ([f (foreign-procedure "nng_http_req_reset"      ((* nng_http_req)) void)])                               (lambda (req) (f req))))
   (define nng-http-res-reset      (let ([f (foreign-procedure "nng_http_res_reset"      ((* nng_http_res)) void)])                               (lambda (res) (f res))))
-  (define-ftype nng_http_handler (struct))
-  (define nng-http-handler-alloc              (let ([f (foreign-procedure "nng_http_handler_alloc"              ((* nng_http_handler) string void*) int)])                 (lambda (handler  path cb) (f handler path cb))))
-  (define nng-http-handler-free               (let ([f (foreign-procedure "nng_http_handler_free"               ((* nng_http_handler)) void)])                             (lambda (handler) (f handler))))
-  (define nng-http-handler-alloc-file         (let ([f (foreign-procedure "nng_http_handler_alloc_file"         ((* nng_http_handler) string string) int)])                (lambda (handler path file-name) (f handler path file-name))))
-  (define nng-http-handler-alloc-static       (let ([f (foreign-procedure "nng_http_handler_alloc_static"       ((* nng_http_handler) string void* size_t string) int)])   (lambda (handler path data size content-type) (f handler path data size content-type))))
-  (define nng-http-handler-alloc-redirect     (let ([f (foreign-procedure "nng_http_handler_alloc_redirect"     ((* nng_http_handler) string unsigned-16 string) int)])    (lambda (handler path status location) (f handler path status location))))
-  (define nng-http-handler-alloc-directory    (let ([f (foreign-procedure "nng_http_handler_alloc_directory"    ((* nng_http_handler) string string) int)])                (lambda (handler path dir-name) (f handler path dir-name))))
+  (define-ftype nng_http_handler
+    (struct
+      [node void*]
+	    [uri (* char)]
+	    [method (* char)]
+	    [host (* char)]
+	    [host_addr nng_sockaddr]
+	    [host_ip boolean]
+	    [tree boolean]
+	    [tree_exclusive boolean]
+	    [ref void*]
+	    [busy boolean]
+	    [maxbody size_t]
+	    [getbody boolean]
+	    [data void*]
+	    [dtor void*]
+      [cb void*]))
+  (define-ftype nng_http_handler* (* nng_http_handler))
+  (define nng-http-handler-alloc              (let ([f (foreign-procedure "nng_http_handler_alloc"              ((* nng_http_handler*) string void*) int)])                 (lambda (handler  path cb) (f handler path cb))))
+  (define nng-http-handler-free               (let ([f (foreign-procedure "nng_http_handler_free"               ((* nng_http_handler*)) void)])                             (lambda (handler) (f handler))))
+  (define nng-http-handler-alloc-file         (let ([f (foreign-procedure "nng_http_handler_alloc_file"         ((* nng_http_handler*) string string) int)])                (lambda (handler path file-name) (f handler path file-name))))
+  (define nng-http-handler-alloc-static       (let ([f (foreign-procedure "nng_http_handler_alloc_static"       ((* nng_http_handler*) string void* size_t string) int)])   (lambda (handler path data size content-type) (f handler path data size content-type))))
+  (define nng-http-handler-alloc-redirect     (let ([f (foreign-procedure "nng_http_handler_alloc_redirect"     ((* nng_http_handler*) string unsigned-16 string) int)])    (lambda (handler path status location) (f handler path status location))))
+  (define nng-http-handler-alloc-directory    (let ([f (foreign-procedure "nng_http_handler_alloc_directory"    ((* nng_http_handler*) string string) int)])                (lambda (handler path dir-name) (f handler path dir-name))))
   (define nng-http-handler-set-method         (let ([f (foreign-procedure "nng_http_handler_set_method"         ((* nng_http_handler) string) int)])                       (lambda (handler method) (f handler method))))
   (define nng-http-handler-set-host           (let ([f (foreign-procedure "nng_http_handler_set_host"           ((* nng_http_handler) string) int)])                       (lambda (handler host) (f handler host))))
   (define nng-http-handler-collect-body       (let ([f (foreign-procedure "nng_http_handler_collect_body"       ((* nng_http_handler) boolean size_t) int)])               (lambda (handler want maxsz) (f handler want maxsz))))
@@ -2434,8 +2457,26 @@
   (define nng-http-handler-set-tree-exclusive (let ([f (foreign-procedure "nng_http_handler_set_tree_exclusive" ((* nng_http_handler)) int)])                              (lambda (handler) (f handler))))
   (define nng-http-handler-set-data           (let ([f (foreign-procedure "nng_http_handler_set_data"           ((* nng_http_handler) void* void*) int)])                  (lambda (handler data cb) (f handler data cb))))
   (define nng-http-handler-get-data           (let ([f (foreign-procedure "nng_http_handler_get_data"           ((* nng_http_handler)) void*)])                            (lambda (handler) (f handler))))
-  (define-ftype nng_http_server (struct))
-  (define nng-http-server-hold           (let ([f (foreign-procedure "nng_http_server_hold"           ((* nng_http_server) (* nng_url)) int)])          (lambda (server url)       (f server url))))
+  (define-ftype nng_http_server
+    (struct
+      [addr nng_sockaddr]
+      [node void*]
+      [refcnt int]
+      [starts int]
+      [handlers void*]
+      [conns void*]
+      [mtx void*]
+      [close boolean]
+      [fini boolean]
+      [accaio (* nng_aio)]
+      [listener (* nng_stream_listener)]
+      [port int]
+      [hostname (* char)]
+      [errors void*]
+      [error-mtx void*]
+      [reap void*]))
+  (define-ftype nng_http_server* (* nng_http_server))
+  (define nng-http-server-hold           (let ([f (foreign-procedure "nng_http_server_hold"           ((* nng_http_server*) (* nng_url)) int)])          (lambda (server url)       (f server url))))
   (define nng-http-server-release        (let ([f (foreign-procedure "nng_http_server_release"        ((* nng_http_server)) void)])                     (lambda (server)           (f server))))
   (define nng-http-server-start          (let ([f (foreign-procedure "nng_http_server_start"          ((* nng_http_server)) int)])                      (lambda (server)           (f server))))
   (define nng-http-server-stop           (let ([f (foreign-procedure "nng_http_server_stop"           ((* nng_http_server)) void)])                     (lambda (server)           (f server))))
