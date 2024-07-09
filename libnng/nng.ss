@@ -488,10 +488,10 @@
     nng-log-get-level
     nng-log-set-logger
     nng-log-err
-    ; nng-log-warn
-    ; nng-log-notice
-    ; nng-log-info
-    ; nng-log-debug
+    nng-log-warn
+    nng-log-notice
+    nng-log-info
+    nng-log-debug
     ; nng-log-auth
     
     ;;
@@ -2185,11 +2185,15 @@
   ; Log a message.  The msg is formatted using following arguments as per
   ; sprintf. The msgid may be NULL.
   ; NNG_DECL void nng_log_err(const char *msgid, const char *msg, ...)
-  (define nng-log-err (let ([f (foreign-procedure "nng_log_err" ((* char) (* char)) void)]) (lambda (msg-id msg) (f msg-id msg))))
   ; NNG_DECL void nng_log_warn(const char *msgid, const char *msg, ...)
   ; NNG_DECL void nng_log_notice(const char *msgid, const char *msg, ...)
   ; NNG_DECL void nng_log_info(const char *msgid, const char *msg, ...)
   ; NNG_DECL void nng_log_debug(const char *msgid, const char *msg, ...)
+  (define nng-log-err (let ([f (foreign-procedure "nng_log_err" (string string) void)]) (lambda (msg-id msg) (f msg-id msg))))
+  (define nng-log-warn (let ([f (foreign-procedure "nng_log_warn" (string string) void)]) (lambda (msg-id msg) (f msg-id msg))))
+  (define nng-log-notice (let ([f (foreign-procedure "nng_log_notice" (string string) void)]) (lambda (msg-id msg) (f msg-id msg))))
+  (define nng-log-info (let ([f (foreign-procedure "nng_log_info" (string string) void)]) (lambda (msg-id msg) (f msg-id msg))))
+  (define nng-log-debug (let ([f (foreign-procedure "nng_log_debug" (string string) void)]) (lambda (msg-id msg) (f msg-id msg))))
   
   ; Log an authentication related message.  These will use the NNG_LOG_AUTH
   ; facility.
